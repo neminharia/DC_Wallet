@@ -32,7 +32,7 @@ export class CryptoManager {
 
   async generateWallet(): Promise<{ mnemonic: string; ethereumAccount: WalletAccount; solanaAccount: WalletAccount }> {
     const mnemonic = generateMnemonic();
-    
+
     // Generate Ethereum account
     const ethereumWallet = ethers.Wallet.fromMnemonic(mnemonic);
     const ethereumAccount = {

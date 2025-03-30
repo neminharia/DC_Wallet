@@ -1,10 +1,13 @@
+import { Account } from "../../background/services/wallet";
+
 export interface WalletState {
   isInitialized: boolean;
   isLocked: boolean;
-  selectedNetwork: string;
+  address: string | null;
   accounts: {
-    [network: string]: string[];
+    [network: string]: Account[];
   };
+  selectedNetwork: string;
   balances?: {
     [address: string]: string;
   };
@@ -21,11 +24,12 @@ export const getWalletState = async (): Promise<WalletState> => {
           resolve({
             isInitialized: false,
             isLocked: true,
-            selectedNetwork: "ethereum",
+            address: null,
             accounts: {
               ethereum: [],
               solana: [],
             },
+            selectedNetwork: "ethereum",
             balances: {},
           });
         }
