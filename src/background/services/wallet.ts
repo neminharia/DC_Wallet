@@ -5,12 +5,25 @@ import { EventEmitter } from "events";
 import { generateMnemonic, mnemonicToEntropy } from "bip39";
 import CryptoJS from "crypto-js";
 
+export interface Network {
+  chainId: string;
+  name: string;
+  rpcUrl: string;
+  symbol: string;
+  explorerUrl: string;
+}
+
+export interface Account {
+  address: string;
+  privateKey: string;
+}
+
 interface WalletStatus {
   isInitialized: boolean;
   isLocked: boolean;
   address: string | null;
   accounts: {
-    [network: string]: string[];
+    [network: string]: Account[];
   };
   selectedNetwork: string;
 }
@@ -60,18 +73,18 @@ export class WalletService {
     try {
       // Generate a new random mnemonic
       this.mnemonic = generateMnemonic();
-      
+
       if (!this.provider) {
         throw new Error("Provider not initialized");
       }
 
       // Create a new wallet from the mnemonic
       this.wallet = ethers.Wallet.fromMnemonic(this.mnemonic).connect(this.provider);
-      
+
       // Encrypt the mnemonic and private key
       const encryptedMnemonic = this.encrypt(this.mnemonic, password);
       const encryptedPrivateKey = this.encrypt(this.wallet.privateKey, password);
-      
+
       // Save to storage
       await this.saveToStorage("isInitialized", true);
       await this.saveToStorage("isLocked", false);
@@ -111,7 +124,7 @@ export class WalletService {
 
       // Create wallet from private key
       this.wallet = new ethers.Wallet(privateKey, this.provider);
-      
+
       await this.saveToStorage("isLocked", false);
     } catch (error) {
       console.error("Error unlocking wallet:", error);
@@ -124,21 +137,21 @@ export class WalletService {
       const isInitialized = await this.getFromStorage("isInitialized") || false;
       const isLocked = await this.getFromStorage("isLocked") !== false;
       const selectedNetwork = await this.getFromStorage("selectedNetwork") || this.selectedNetwork;
-      
-      let accounts: string[] = [];
+
+      let accounts: Account[] = [];
       if (this.wallet) {
-        accounts = [this.wallet.address];
+        accounts = [{ address: this.wallet.address, privateKey: this.wallet.privateKey }];
       } else {
         const address = await this.getFromStorage("ethereumAddress");
         if (address) {
-          accounts = [address];
+          accounts = [{ address, privateKey: "" }];
         }
       }
-      
+
       return {
         isInitialized,
         isLocked,
-        address: accounts[0] || null,
+        address: accounts[0]?.address || null,
         accounts: {
           [selectedNetwork]: accounts
         },
@@ -165,13 +178,13 @@ export class WalletService {
     if (!(network in NETWORKS)) {
       throw new Error(`Network ${network} not supported`);
     }
-    
+
     this.selectedNetwork = network;
     await this.saveToStorage("selectedNetwork", network);
-    
+
     // Initialize new Web3 and provider instances
     this.initializeWeb3(NETWORKS[network].rpcUrl);
-    
+
     if (this.wallet && this.provider) {
       // Update wallet with new provider
       this.wallet = this.wallet.connect(this.provider);
@@ -228,5 +241,12 @@ export class WalletService {
       throw new Error("Wallet is locked");
     }
     return await this.wallet.signMessage(message);
+  }
+
+  async getPrivateKey(address: string, password: string): Promise<string> {
+    if (!this.wallet) {
+      throw new Error("Wallet is locked");
+    }
+    return this.wallet.privateKey;
   }
 }
