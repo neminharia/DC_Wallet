@@ -6,14 +6,16 @@ import {
   Button,
   Box,
   Alert,
+  Link,
 } from "@mui/material";
 import PasswordInput from "./PasswordInput";
 
 interface WalletUnlockProps {
   onUnlock: (password: string) => Promise<void>;
+  onForgotPassword: () => void;
 }
 
-const WalletUnlock: React.FC<WalletUnlockProps> = ({ onUnlock }) => {
+const WalletUnlock: React.FC<WalletUnlockProps> = ({ onUnlock, onForgotPassword }) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -55,6 +57,17 @@ const WalletUnlock: React.FC<WalletUnlockProps> = ({ onUnlock }) => {
           >
             Unlock
           </Button>
+
+          <Box sx={{ mt: 2, textAlign: 'center' }}>
+            <Link
+              component="button"
+              variant="body2"
+              onClick={onForgotPassword}
+              sx={{ textDecoration: 'none' }}
+            >
+              Forgot password?
+            </Link>
+          </Box>
         </Box>
       </CardContent>
     </Card>

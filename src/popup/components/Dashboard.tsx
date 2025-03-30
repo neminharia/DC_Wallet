@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { ethers } from 'ethers';
 import { Network, Account } from '../../background/services/wallet';
+import { formatAddress } from '../utils/wallet';
 
 interface DashboardProps {
   selectedNetwork: string;
@@ -177,13 +178,33 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <Paper sx={{ p: 2, mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">Account</Typography>
-            <IconButton onClick={handleCopyAddress}>
-              <ContentCopy />
+          </Box>
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              bgcolor: 'action.hover',
+              borderRadius: 1,
+              p: 1,
+              mt: 1,
+              cursor: 'pointer'
+            }}
+            onClick={handleCopyAddress}
+          >
+            <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+              {selectedAccount?.address && formatAddress(selectedAccount.address)}
+            </Typography>
+            <IconButton 
+              size="small" 
+              sx={{ ml: 1 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyAddress();
+              }}
+            >
+              <ContentCopy fontSize="small" />
             </IconButton>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            {selectedAccount?.address}
-          </Typography>
         </Paper>
 
         {/* Balance */}

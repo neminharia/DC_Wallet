@@ -47,6 +47,11 @@ class BackgroundService {
           sendResponse({ success: true });
           break;
 
+        case "RECOVER_WALLET":
+          await this.walletService.recoverWallet(message.seedPhrase, message.password);
+          sendResponse({ success: true });
+          break;
+
         case "GET_WALLET_STATE":
           const status = await this.walletService.getWalletStatus();
           sendResponse({ success: true, result: status });

@@ -14,6 +14,17 @@ export interface WalletState {
 }
 
 export const getWalletState = async (): Promise<WalletState> => {
+  // First check local storage for initialization status
+  const checkStorage = async () => {
+    return new Promise<boolean>((resolve) => {
+      chrome.storage.local.get(['isInitialized'], (result) => {
+        resolve(!!result.isInitialized);
+      });
+    });
+  };
+
+  const isStorageInitialized = await checkStorage();
+
   return new Promise((resolve) => {
     chrome.runtime.sendMessage(
       { type: "GET_WALLET_STATE" },
@@ -21,8 +32,9 @@ export const getWalletState = async (): Promise<WalletState> => {
         if (response?.success && response.result) {
           resolve(response.result);
         } else {
+          // Only return uninitialized state if storage confirms it
           resolve({
-            isInitialized: false,
+            isInitialized: isStorageInitialized,
             isLocked: true,
             address: null,
             accounts: {

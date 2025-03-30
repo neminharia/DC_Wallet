@@ -8,23 +8,45 @@ import {
 } from "@mui/material";
 import WalletSetup from "./components/WalletSetup";
 import WalletUnlock from "./components/WalletUnlock";
+import WalletRecover from "./components/WalletRecover";
 import Dashboard from "./components/Dashboard";
 import { WalletState, getWalletState } from "./utils/wallet";
+import { ExtensionMessage } from "../types/messages";
 
 const App: React.FC = () => {
   const [walletState, setWalletState] = useState<WalletState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [setupComplete, setSetupComplete] = useState(false);
 
   useEffect(() => {
     loadWalletState();
+
+    // Add listener for storage changes
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      if (changes.isInitialized || changes.isLocked) {
+        loadWalletState();
+      }
+    };
+
+    chrome.storage.onChanged.addListener(handleStorageChange);
+
+    return () => {
+      chrome.storage.onChanged.removeListener(handleStorageChange);
+    };
   }, []);
 
   const loadWalletState = async () => {
     try {
       const state = await getWalletState();
       setWalletState(state);
+      
+      // Check if setup is complete
+      chrome.storage.local.get(['setupComplete'], (result) => {
+        setSetupComplete(!!result.setupComplete);
+      });
     } catch (err) {
       setError("Failed to load wallet state");
     } finally {
@@ -39,7 +61,7 @@ const App: React.FC = () => {
         chrome.runtime.sendMessage({
           type: "CREATE_WALLET",
           password,
-        } as ExtensionMessage, (response: ExtensionResponse) => {
+        } as ExtensionMessage, (response) => {
           if (response.success) {
             loadWalletState().then(() => {
               setNotification("Wallet created successfully");
@@ -68,7 +90,7 @@ const App: React.FC = () => {
         chrome.runtime.sendMessage({
           type: "UNLOCK_WALLET",
           password,
-        } as ExtensionMessage, (response: ExtensionResponse) => {
+        } as ExtensionMessage, (response) => {
           if (response.success) {
             loadWalletState().then(() => {
               setNotification("Wallet unlocked");
@@ -90,13 +112,44 @@ const App: React.FC = () => {
     }
   };
 
+  const handleRecoverWallet = async (seedPhrase: string, newPassword: string) => {
+    try {
+      setLoading(true);
+      return new Promise<void>((resolve, reject) => {
+        chrome.runtime.sendMessage({
+          type: "RECOVER_WALLET",
+          seedPhrase,
+          password: newPassword,
+        } as ExtensionMessage, (response) => {
+          if (response.success) {
+            loadWalletState().then(() => {
+              setNotification("Wallet recovered successfully");
+              setIsRecovering(false);
+              resolve();
+            });
+          } else {
+            reject(new Error(response.error || "Failed to recover wallet"));
+          }
+        });
+      });
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Failed to recover wallet");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleLockWallet = async () => {
     try {
       setLoading(true);
       return new Promise<void>((resolve, reject) => {
         chrome.runtime.sendMessage({
           type: "LOCK_WALLET",
-        } as ExtensionMessage, (response: ExtensionResponse) => {
+        } as ExtensionMessage, (response) => {
           if (response.success) {
             loadWalletState().then(() => {
               setNotification("Wallet locked");
@@ -125,14 +178,14 @@ const App: React.FC = () => {
         chrome.runtime.sendMessage({
           type: "SWITCH_NETWORK",
           network,
-        } as ExtensionMessage, (response: ExtensionResponse) => {
+        } as ExtensionMessage, (response) => {
           if (response.success) {
             loadWalletState().then(() => {
-              setNotification(`Switched to ${network}`);
+              setNotification("Network changed");
               resolve();
             });
           } else {
-            reject(new Error(response.error || "Failed to switch network"));
+            reject(new Error(response.error || "Failed to change network"));
           }
         });
       });
@@ -140,7 +193,7 @@ const App: React.FC = () => {
       if (err instanceof Error) {
         setError(err.message);
       } else {
-        setError("Failed to switch network");
+        setError("Failed to change network");
       }
     } finally {
       setLoading(false);
@@ -169,10 +222,20 @@ const App: React.FC = () => {
 
   return (
     <Container maxWidth="sm" sx={{ py: 2 }}>
-      {!walletState?.isInitialized ? (
+      {!walletState?.isInitialized || !setupComplete ? (
         <WalletSetup onCreateWallet={handleCreateWallet} />
       ) : walletState.isLocked ? (
-        <WalletUnlock onUnlock={handleUnlockWallet} />
+        isRecovering ? (
+          <WalletRecover 
+            onRecover={handleRecoverWallet}
+            onCancel={() => setIsRecovering(false)}
+          />
+        ) : (
+          <WalletUnlock 
+            onUnlock={handleUnlockWallet}
+            onForgotPassword={() => setIsRecovering(true)}
+          />
+        )
       ) : (
         <Dashboard
           selectedNetwork={walletState.selectedNetwork}

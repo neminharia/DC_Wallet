@@ -192,37 +192,12 @@ export class WalletService {
   }
 
   private async saveToStorage(key: string, value: any): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.set({ [key]: value }, () => {
-          const error = chrome.runtime.lastError;
-          if (error) {
-            reject(new Error(error.message));
-          } else {
-            resolve();
-          }
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    await chrome.storage.local.set({ [key]: value });
   }
 
   private async getFromStorage(key: string): Promise<any> {
-    return new Promise((resolve, reject) => {
-      try {
-        chrome.storage.local.get(key, (result) => {
-          const error = chrome.runtime.lastError;
-          if (error) {
-            reject(new Error(error.message));
-          } else {
-            resolve(result[key]);
-          }
-        });
-      } catch (error) {
-        reject(error);
-      }
-    });
+    const result = await chrome.storage.local.get(key);
+    return result[key];
   }
 
   async getAddress(): Promise<string | null> {
@@ -248,5 +223,37 @@ export class WalletService {
       throw new Error("Wallet is locked");
     }
     return this.wallet.privateKey;
+  }
+
+  async recoverWallet(seedPhrase: string, newPassword: string): Promise<void> {
+    try {
+      // Validate the mnemonic
+      if (!ethers.utils.isValidMnemonic(seedPhrase)) {
+        throw new Error("Invalid recovery phrase");
+      }
+
+      // Create a new wallet from the mnemonic
+      if (!this.provider) {
+        this.provider = new ethers.providers.JsonRpcProvider(NETWORKS[this.selectedNetwork].rpcUrl);
+      }
+
+      this.mnemonic = seedPhrase;
+      this.wallet = ethers.Wallet.fromMnemonic(seedPhrase).connect(this.provider);
+
+      // Encrypt the mnemonic and private key with the new password
+      const encryptedMnemonic = this.encrypt(seedPhrase, newPassword);
+      const encryptedPrivateKey = this.encrypt(this.wallet.privateKey, newPassword);
+
+      // Save to storage
+      await this.saveToStorage("isInitialized", true);
+      await this.saveToStorage("isLocked", false);
+      await this.saveToStorage("ethereumAddress", this.wallet.address);
+      await this.saveToStorage("encryptedMnemonic", encryptedMnemonic);
+      await this.saveToStorage("encryptedPrivateKey", encryptedPrivateKey);
+      await this.saveToStorage("selectedNetwork", this.selectedNetwork);
+    } catch (error) {
+      console.error("Error recovering wallet:", error);
+      throw error;
+    }
   }
 }
