@@ -1,4 +1,4 @@
-# Web3 Wallet Extension
+# DC_Wallet Extension
 
 A secure multi-chain cryptocurrency wallet browser extension that supports Ethereum and other EVM-compatible networks.
 
