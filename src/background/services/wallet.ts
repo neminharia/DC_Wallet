@@ -71,21 +71,17 @@ export class WalletService {
 
   async createWallet(password: string): Promise<void> {
     try {
-      // Generate a new random mnemonic
       this.mnemonic = generateMnemonic();
 
       if (!this.provider) {
         throw new Error("Provider not initialized");
       }
 
-      // Create a new wallet from the mnemonic
       this.wallet = ethers.Wallet.fromMnemonic(this.mnemonic).connect(this.provider);
 
-      // Encrypt the mnemonic and private key
       const encryptedMnemonic = this.encrypt(this.mnemonic, password);
       const encryptedPrivateKey = this.encrypt(this.wallet.privateKey, password);
 
-      // Save to storage
       await this.saveToStorage("isInitialized", true);
       await this.saveToStorage("isLocked", false);
       await this.saveToStorage("ethereumAddress", this.wallet.address);
@@ -114,7 +110,6 @@ export class WalletService {
         throw new Error("No wallet found");
       }
 
-      // Decrypt the mnemonic and private key
       this.mnemonic = this.decrypt(encryptedMnemonic, password);
       const privateKey = this.decrypt(encryptedPrivateKey, password);
 
@@ -122,7 +117,6 @@ export class WalletService {
         this.provider = new ethers.providers.JsonRpcProvider(NETWORKS.ganache.rpcUrl);
       }
 
-      // Create wallet from private key
       this.wallet = new ethers.Wallet(privateKey, this.provider);
 
       await this.saveToStorage("isLocked", false);
@@ -182,11 +176,9 @@ export class WalletService {
     this.selectedNetwork = network;
     await this.saveToStorage("selectedNetwork", network);
 
-    // Initialize new Web3 and provider instances
     this.initializeWeb3(NETWORKS[network].rpcUrl);
 
     if (this.wallet && this.provider) {
-      // Update wallet with new provider
       this.wallet = this.wallet.connect(this.provider);
     }
   }
@@ -202,6 +194,10 @@ export class WalletService {
 
   async getAddress(): Promise<string | null> {
     return this.wallet?.address || null;
+  }
+
+  getSelectedNetwork(): string {
+    return this.selectedNetwork;
   }
 
   async signTransaction(transaction: ethers.providers.TransactionRequest): Promise<string> {
@@ -227,12 +223,10 @@ export class WalletService {
 
   async recoverWallet(seedPhrase: string, newPassword: string): Promise<void> {
     try {
-      // Validate the mnemonic
       if (!ethers.utils.isValidMnemonic(seedPhrase)) {
         throw new Error("Invalid recovery phrase");
       }
 
-      // Create a new wallet from the mnemonic
       if (!this.provider) {
         this.provider = new ethers.providers.JsonRpcProvider(NETWORKS[this.selectedNetwork].rpcUrl);
       }
@@ -240,11 +234,9 @@ export class WalletService {
       this.mnemonic = seedPhrase;
       this.wallet = ethers.Wallet.fromMnemonic(seedPhrase).connect(this.provider);
 
-      // Encrypt the mnemonic and private key with the new password
       const encryptedMnemonic = this.encrypt(seedPhrase, newPassword);
       const encryptedPrivateKey = this.encrypt(this.wallet.privateKey, newPassword);
 
-      // Save to storage
       await this.saveToStorage("isInitialized", true);
       await this.saveToStorage("isLocked", false);
       await this.saveToStorage("ethereumAddress", this.wallet.address);

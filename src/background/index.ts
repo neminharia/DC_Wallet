@@ -1,20 +1,23 @@
 import { WalletService } from "./services/wallet";
 import { GanacheProvider } from "./providers/ganache";
+import { TransactionService } from "./services/transaction";
 
 class BackgroundService {
   private walletService: WalletService;
   private ganacheProvider: GanacheProvider;
+  private transactionService: TransactionService;
 
   constructor() {
     this.walletService = new WalletService();
     this.ganacheProvider = new GanacheProvider(this.walletService);
+    this.transactionService = new TransactionService(this.walletService);
     this.initialize();
   }
 
   private initialize() {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       this.handleMessage(message, sender, sendResponse);
-      return true; // Keep the message channel open for async responses
+      return true; 
     });
   }
 
@@ -32,7 +35,6 @@ class BackgroundService {
           break;
 
         case "COMPLETE_SETUP":
-          // Handle wallet setup completion
           const state = await this.walletService.getWalletStatus();
           sendResponse({ success: true, result: state });
           break;
@@ -63,13 +65,13 @@ class BackgroundService {
           break;
 
         case "GET_BALANCE":
-          const balance = await this.ganacheProvider.getBalance(message.address);
-          sendResponse({ success: true, result: balance });
+          const balance = await this.transactionService.getBalance(message.address, message.network);
+          sendResponse({ success: true, data: balance });
           break;
 
         case "SEND_TRANSACTION":
-          const txHash = await this.ganacheProvider.sendTransaction(message.params);
-          sendResponse({ success: true, result: txHash });
+          const result = await this.transactionService.sendTransaction(message.params);
+          sendResponse({ success: true, data: result });
           break;
 
         case "SIGN_MESSAGE":
@@ -81,10 +83,14 @@ class BackgroundService {
           break;
 
         case "SWITCH_NETWORK":
-          // Handle network switching
           await this.walletService.switchNetwork(message.network);
           const newState = await this.walletService.getWalletStatus();
           sendResponse({ success: true, result: newState });
+          break;
+
+        case "ESTIMATE_GAS":
+          const gasPrice = await this.transactionService.estimateGas(message.params);
+          sendResponse({ success: true, data: gasPrice });
           break;
 
         default:
@@ -104,5 +110,4 @@ class BackgroundService {
   }
 }
 
-// Initialize the background service
 new BackgroundService();

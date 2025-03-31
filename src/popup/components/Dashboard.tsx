@@ -34,6 +34,7 @@ import {
 import { ethers } from 'ethers';
 import { Network, Account } from '../../background/services/wallet';
 import { formatAddress } from '../utils/wallet';
+import SendTransaction from './SendTransaction';
 
 interface DashboardProps {
   selectedNetwork: string;
@@ -127,26 +128,42 @@ export const Dashboard: React.FC<DashboardProps> = ({
     }
   };
 
-  const handleSend = async () => {
-    if (!selectedAccount || !sendAmount || !sendAddress) return;
+  const handleSend = async (to: string, amount: string) => {
+    if (!selectedAccount) {
+      throw new Error('No account selected');
+    }
 
     try {
       setSendLoading(true);
-      const response = await chrome.runtime.sendMessage({
+      
+      // Create the transaction request for Ganache with all required parameters
+      const txRequest = {
         type: 'SEND_TRANSACTION',
-        from: selectedAccount.address,
-        to: sendAddress,
-        value: ethers.utils.parseEther(sendAmount).toString()
-      });
+        params: {
+          from: selectedAccount.address,
+          to: to,
+          value: ethers.utils.parseEther(amount).toString(),
+          gasLimit: '21000',  // Fixed gas limit for ETH transfers
+          gasPrice: ethers.utils.parseUnits("20", "gwei").toString(), // 20 Gwei
+        }
+      };
 
-      if (response.success) {
-        setSendDialogOpen(false);
-        setSendAmount('');
-        setSendAddress('');
-        loadBalances(selectedAccount.address);
+      console.log('Sending transaction:', txRequest); // Debug log
+
+      const response = await chrome.runtime.sendMessage(txRequest);
+
+      console.log('Transaction response:', response); // Debug log
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'Failed to send transaction');
       }
+
+      setSendDialogOpen(false);
+      await loadBalances(selectedAccount.address);
+      
     } catch (error) {
       console.error('Error sending transaction:', error);
+      throw error;
     } finally {
       setSendLoading(false);
     }
@@ -164,8 +181,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Network Selection */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
           <Chip
-            label={selectedNetwork}
-            onClick={handleNetworkMenuClick}
+            label="Ganache Local"
             color="primary"
             variant="outlined"
           />
@@ -281,35 +297,17 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </Menu>
 
         {/* Send Dialog */}
-        <Dialog open={sendDialogOpen} onClose={() => setSendDialogOpen(false)}>
-          <DialogTitle>Send ETH</DialogTitle>
+        <Dialog open={sendDialogOpen} onClose={() => setSendDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Send ETH (Ganache)</DialogTitle>
           <DialogContent>
-            <TextField
-              autoFocus
-              margin="dense"
-              label="Recipient Address"
-              fullWidth
-              value={sendAddress}
-              onChange={(e) => setSendAddress(e.target.value)}
-            />
-            <TextField
-              margin="dense"
-              label="Amount (ETH)"
-              fullWidth
-              value={sendAmount}
-              onChange={(e) => setSendAmount(e.target.value)}
+            <SendTransaction
+              network="ethereum"
+              onSend={handleSend}
+              balance={balance}
+              isGanache={true}
+              fromAddress={selectedAccount?.address || ''}
             />
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setSendDialogOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleSend}
-              variant="contained"
-              disabled={sendLoading}
-            >
-              {sendLoading ? <CircularProgress size={24} /> : 'Send'}
-            </Button>
-          </DialogActions>
         </Dialog>
     </Box>
     </Container>

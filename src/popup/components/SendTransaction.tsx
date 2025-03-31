@@ -12,11 +12,17 @@ import {
 interface SendTransactionProps {
   network: "ethereum" | "solana";
   onSend: (to: string, amount: string) => Promise<void>;
+  balance: string;
+  isGanache: boolean;
+  fromAddress: string;
 }
 
 const SendTransaction: React.FC<SendTransactionProps> = ({
   network,
   onSend,
+  balance,
+  isGanache,
+  fromAddress,
 }) => {
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");

@@ -75,7 +75,6 @@ export class EthereumProvider extends Provider {
         const blockNumber = await this.provider.getBlockNumber();
         const history = [];
 
-        // Get last 100 blocks
         for (let i = blockNumber - 100; i <= blockNumber; i++) {
             const block = await this.provider.getBlockWithTransactions(i);
             const transactions = block.transactions.filter(tx =>
@@ -123,7 +122,7 @@ export class EthereumProvider extends Provider {
 
     async approveToken(tokenAddress: string, spender: string, amount: string): Promise<string> {
         const state = await this.walletService.getWalletStatus();
-        const account = state.accounts[this.network.chainId][0]; // Use first account for token operations
+        const account = state.accounts[this.network.chainId][0];
 
         const privateKey = await this.walletService.getPrivateKey(account.address, '');
         const signer = await this.getSigner(account.address, privateKey);
@@ -138,7 +137,7 @@ export class EthereumProvider extends Provider {
 
     async transferToken(tokenAddress: string, to: string, amount: string): Promise<string> {
         const state = await this.walletService.getWalletStatus();
-        const account = state.accounts[this.network.chainId][0]; // Use first account for token operations
+        const account = state.accounts[this.network.chainId][0]; 
 
         const privateKey = await this.walletService.getPrivateKey(account.address, '');
         const signer = await this.getSigner(account.address, privateKey);
